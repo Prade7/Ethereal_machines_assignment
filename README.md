@@ -151,7 +151,8 @@ Ensure you have the following installed on your machine:
 1. **Clone the Repository**:
    ```bash
    git clone https://github.com/Prade7/Ethereal_machines_assignment.git
-   cd your-repo-name
+   
+   cd Ethereal_machines_assignment
 Install Dependencies:
 If running locally without Docker, install the required Python packages:
 
