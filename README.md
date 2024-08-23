@@ -1,7 +1,7 @@
 # Ethereal machines
 
 ## Overview
-This project is designed to handle api request at the rate of 30 per minute to update the details in the db. It includes various functionalities accessible via defined API routes, with structured models for data handling and robust error handling mechanisms.
+This project is designed to handle api requests for the CNC data. It includes various functionalities accessible via defined API routes, with structured models for data handling and robust error handling mechanisms.
 
 ## File Structure
 
@@ -186,7 +186,7 @@ curl -X POST http://localhost:5000/api/login \
 -d '{"username": "manager"}'
 ```
 
-### 2. **Login to Obtain JWT Token**
+### 2. **Update Machine Data (Requires JWT)**
 ```bash
 curl -X POST http://localhost:5000/updatemachine \
 -H "Content-Type: application/json" \
