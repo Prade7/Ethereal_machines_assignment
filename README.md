@@ -150,16 +150,17 @@ Ensure you have the following installed on your machine:
 
 1. **Clone the Repository**:
    ```bash
+
    git clone https://github.com/Prade7/Ethereal_machines_assignment.git
    
    cd Ethereal_machines_assignment
 Install Dependencies:
 If running locally without Docker, install the required Python packages:
 
-bash
-Copy code
-pip install -r requirements.txt
+```bash
 
+pip install -r requirements.txt
+```
 ### Running the Application:
 ```
 python main.py
@@ -167,4 +168,44 @@ python main.py
 ```
 ```
 python script/script.py
+```
+
+
+
+
+
+
+## Using the CNC Machine Management API
+
+### 1. **Login to Obtain JWT Token**
+To interact with the API, you need to authenticate and obtain a JWT token. Use the following `curl` command to login:
+
+```bash
+curl -X POST http://localhost:5000/api/login \
+-H "Content-Type: application/json" \
+-d '{"username": "manager"}'
+```
+
+### 2. **Login to Obtain JWT Token**
+```bash
+curl -X POST http://localhost:5000/updatemachine \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer your_jwt_token_here" \
+-d '{
+  "name": "Machine1",
+  "acceleration": 6.0,
+  "velocity": 12.0,
+  "actual_position": [[1, 2, 3, 4, 5]],
+  "distance_to_go": [[1, 2, 3, 4, 5]],
+  "homed": [[true, true, true, true, true]],
+  "tool_offset": [[0.1, 0.2, 0.3, 0.4, 0.5]]
+}'
+
+```
+
+### 3. **Get Machine Data (Requires JWT)**
+```bash
+curl -X GET http://localhost:5000/viewmachines \
+-H "Content-Type: application/json" \
+-H "Authorization: Bearer your_jwt_token_here"
 ```
