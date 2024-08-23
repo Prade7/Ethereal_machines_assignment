@@ -143,3 +143,27 @@ Ensure you have the following installed on your machine:
 - Python 3.x
 - Git
 
+
+
+
+### Setup and Installation
+
+1. **Clone the Repository**:
+   ```bash
+   git clone https://github.com/Prade7/Ethereal_machines_assignment.git
+   cd your-repo-name
+Install Dependencies:
+If running locally without Docker, install the required Python packages:
+
+bash
+Copy code
+pip install -r requirements.txt
+
+### Running the Application:
+```
+python main.py
+
+```
+```
+python script/script.py
+```
