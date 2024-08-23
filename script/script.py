@@ -1,15 +1,12 @@
 import time
 import requests
-# from requests.auth import HTTPBearerAuth
 import re
 from datetime import datetime
-# Set the path to your cnc.txt file
 file_path = 'cnc.txt'
 
-# Your server's API endpoint
 api_url = 'http://127.0.0.1:5000/updatemachine'
 
-# Your JWT token (you would typically retrieve this via a login request)
+# JWT of the user
 jwt_token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTcyNDIzNDM1MSwianRpIjoiMWJkNjllNGUtYTM5OS00NzdlLWJlZTQtZjlhNTE0M2FlMGExIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6eyJ1c2VybmFtZSI6Im1hbmFnZXIiLCJyb2xlIjoiTWFuYWdlciJ9LCJuYmYiOjE3MjQyMzQzNTEsImNzcmYiOiI4NzEzN2FjYi0xODIxLTQ3MmMtYTYzYy0yNTZlZTk4NzRkYWUifQ.F-o5hpaCOMUA90NevUTNuyVj9O6tLYYonTPHi2CqDls'
 
 def parse_cnc_file(file_path):
@@ -47,7 +44,6 @@ def send_machine_data(machine):
         'Content-Type': 'application/json'
     }
 
-    # Corrected data structure for multiple entries
     data = {
         'name': machine['name'],
         'acceleration': machine['acceleration'],

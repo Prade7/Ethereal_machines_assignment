@@ -46,7 +46,7 @@ def login():
     
     if role:
         access_token = create_access_token(
-            identity={'username': username, 'role': role},
+            identity={'username': username.lower(), 'role': role},
             expires_delta=False
         )
         return jsonify(access_token=access_token), 200
@@ -54,10 +54,11 @@ def login():
         raise InvalidDataError("Invalid credentials")
 
 @routes.route('/viewmachines', methods=['GET'])
+@jwt_required()
 def view_machines():
-    # current_user = get_jwt_identity()
-    # if not user_has_permission(current_user['role'], 'GET'):
-    #     raise PermissionDeniedError(current_user['role'])
+    current_user = get_jwt_identity()
+    if not user_has_permission(current_user['role'], 'GET'):
+        raise PermissionDeniedError(current_user['role'])
 
     machines = Machine.query.all()
     grouped_data = {}
