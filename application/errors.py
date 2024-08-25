@@ -1,17 +1,37 @@
-class CustomError(Exception):
-    def __init__(self, message, status_code):
-        super().__init__(message)
+from flask import jsonify
+
+class InvalidDataError(Exception):
+    def __init__(self, message):
         self.message = message
-        self.status_code = status_code
 
-class PermissionDeniedError(CustomError):
+class PermissionDeniedError(Exception):
     def __init__(self, role):
-        super().__init__(f"Permission denied. The user with role '{role}' is not authorized to perform this action.", 403)
+        self.message = f"Permission denied for role: {role}"
 
-class MachineNotFoundError(CustomError):
-    def __init__(self, machine_name):
-        super().__init__(f"Machine {machine_name} not found.", 404)
+class MachineNotFoundError(Exception):
+    def __init__(self, message):
+        self.message = message
 
-class InvalidDataError(CustomError):
-    def __init__(self, message="Invalid data provided."):
-        super().__init__(message, 400)
+# Error handler for InvalidDataError
+def handle_invalid_data_error(error):
+    response = jsonify({"error": error.message})
+    response.status_code = 400  # Bad Request
+    return response
+
+# Error handler for PermissionDeniedError
+def handle_permission_denied_error(error):
+    response = jsonify({"error": error.message})
+    response.status_code = 403  # Forbidden
+    return response
+
+# Error handler for MachineNotFoundError
+def handle_machine_not_found_error(error):
+    response = jsonify({"error": error.message})
+    response.status_code = 404  # Not Found
+    return response
+
+# Function to register error handlers with Flask app
+def register_error_handlers(app):
+    app.register_error_handler(InvalidDataError, handle_invalid_data_error)
+    app.register_error_handler(PermissionDeniedError, handle_permission_denied_error)
+    app.register_error_handler(MachineNotFoundError, handle_machine_not_found_error)

@@ -13,3 +13,18 @@ jwt = JWTManager(app)
 
 
 
+from flask import jsonify
+from application.errors import PermissionDeniedError, InvalidDataError, MachineNotFoundError
+
+
+@app.errorhandler(PermissionDeniedError)
+def handle_permission_denied_error(e):
+    return jsonify(error=str(e)), 403
+
+@app.errorhandler(InvalidDataError)
+def handle_invalid_data_error(e):
+    return jsonify(error=str(e)), 400
+
+@app.errorhandler(MachineNotFoundError)
+def handle_machine_not_found_error(e):
+    return jsonify(error=str(e)), 404

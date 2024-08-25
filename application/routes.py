@@ -1,175 +1,328 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
 from application import db
-from application.models import Machine, DynamicData
+from application.models import Machine, DynamicData, User
 from datetime import datetime
+from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity
 from application.errors import PermissionDeniedError, InvalidDataError, MachineNotFoundError
+from werkzeug.security import check_password_hash
 
 routes = Blueprint('routes', __name__)
 
-USER_ROLES = {
-    'manager': 'Manager',
-    'supervisor': 'Supervisor',
-    'operator': 'Operator'
-}
+# USER_ROLES = {
+#     'manager': 'Manager',
+#     'supervisor': 'Supervisor',
+#     'operator': 'Operator'
+# }
 
-def user_has_permission(user_role, method):
-    permissions = {
-        'Manager': {'POST': True, 'GET': True, 'PUT': True, 'DELETE': False},
-        'Supervisor': {'POST': False, 'GET': True, 'PUT': True, 'DELETE': False},
-        'Operator': {'POST': False, 'GET': True, 'PUT': False, 'DELETE': False},
-    }
-    return permissions.get(user_role, {}).get(method, False)
+# def user_has_permission(user_role, method, is_update=False):
+#     permissions = {
+#         'Manager': {'POST': True, 'GET': True, 'PUT': True, 'DELETE': True},
+#         'Supervisor': {'POST': is_update, 'GET': True, 'PUT': True, 'DELETE': False},
+#         'Operator': {'POST': False, 'GET': True, 'PUT': False, 'DELETE': False},
+#     }
+#     return permissions.get(user_role, {}).get(method, False)
 
-@routes.errorhandler(PermissionDeniedError)
-def handle_permission_denied(error):
-    response = jsonify({"message": error.message})
-    response.status_code = error.status_code
-    return response
-
-@routes.errorhandler(MachineNotFoundError)
-def handle_machine_not_found(error):
-    response = jsonify({"message": error.message})
-    response.status_code = error.status_code
-    return response
-
-@routes.errorhandler(InvalidDataError)
-def handle_invalid_data(error):
-    response = jsonify({"message": error.message})
-    response.status_code = error.status_code
-    return response
 
 @routes.route('/api/login', methods=['POST'])
 def login():
-    username = request.json.get('username', None)
-    role = USER_ROLES.get(username)
-    
-    if role:
+    # Get employee ID and password from the request
+    employee_id = request.json.get('employee_id', None)
+    password = request.json.get('password', None)
+
+    # Validate input
+    if not employee_id or not password:
+        raise InvalidDataError("Employee ID and password are required.")
+
+    # Query the user by employee ID
+    user = User.query.filter_by(employee_id=employee_id).first()
+
+    if user:
+        # Check if the password is correct
+        if check_password_hash(user.password_hash, password):
+            print("-------------------------------------------------",'line no 42')
+            # Create JWT token
+            access_token = create_access_token(
+                identity={'employee_id': user.employee_id, 'role': user.role, 'user_id': user.id},
+                expires_delta=False
+            )
+            return jsonify(access_token=access_token), 200
+        else:
+            # If password is incorrect
+            return jsonify({"error": "Invalid password."}), 401
+    else:
+        # Create new user if not found
+        new_user = User(employee_id=employee_id)
+        new_user.set_password(password)
+        new_user.role = request.json.get('role', 'Operator')  # Default role as 'Operator' if not provided
+        db.session.add(new_user)
+        db.session.commit()
+
+        # Create JWT token for the new user
         access_token = create_access_token(
-            identity={'username': username.lower(), 'role': role},
+            identity={'employee_id': new_user.employee_id, 'role': new_user.role, 'user_id': new_user.id},
             expires_delta=False
         )
         return jsonify(access_token=access_token), 200
-    else:
-        raise InvalidDataError("Invalid credentials")
 
-@routes.route('/viewmachines', methods=['GET'])
+
+
+
+
+
+
+
+
+
+
+
+
+
+@routes.route('/machine', methods=['PUT','POST','GET','DELETE'])
 @jwt_required()
-def view_machines():
+def machine():
     current_user = get_jwt_identity()
-    if not user_has_permission(current_user['role'], 'GET'):
-        raise PermissionDeniedError(current_user['role'])
+    if request.method =="DELETE":
+        employee_id = current_user["employee_id"]
+        return jsonify(f"You cannot delete MR - {employee_id}"),404
 
-    machines = Machine.query.all()
-    grouped_data = {}
+    if request.method =="GET":
+        machines = Machine.query.all()
+    
+        # Group data by machine name
+        result = []
+        for machine in machines:
+            machine_data = {
+                'name': machine.name,
+                'acceleration': machine.acceleration,
+                'velocity': machine.velocity,
+                # 'timestamp': machine.timestamp,
+                'dynamic_data': []
+            }
+            
+            for dynamic_data in machine.dynamic_data:
+                dynamic_data_entry = {
+                    'actual_position': {
+                        'x': dynamic_data.actual_position_x,
+                        'y': dynamic_data.actual_position_y,
+                        'z': dynamic_data.actual_position_z,
+                        'a': dynamic_data.actual_position_a,
+                        'c': dynamic_data.actual_position_c
+                    },
+                    'distance_to_go': {
+                        'x': dynamic_data.distance_to_go_x,
+                        'y': dynamic_data.distance_to_go_y,
+                        'z': dynamic_data.distance_to_go_z,
+                        'a': dynamic_data.distance_to_go_a,
+                        'c': dynamic_data.distance_to_go_c
+                    },
+                    'homed': {
+                        'x': dynamic_data.homed_x,
+                        'y': dynamic_data.homed_y,
+                        'z': dynamic_data.homed_z,
+                        'a': dynamic_data.homed_a,
+                        'c': dynamic_data.homed_c
+                    },
+                    'tool_offset': {
+                        'x': dynamic_data.tool_offset_x,
+                        'y': dynamic_data.tool_offset_y,
+                        'z': dynamic_data.tool_offset_z,
+                        'a': dynamic_data.tool_offset_a,
+                        'c': dynamic_data.tool_offset_c
+                    },
+                    'created_by': dynamic_data.created_by,
+                    'timestamp':dynamic_data.timestamp
+                }
+                machine_data['dynamic_data'].append(dynamic_data_entry)
 
-    for machine in machines:
-        dynamic_data_list = DynamicData.query.filter_by(machine_name=machine.name).all()
-        grouped_data[machine.name] = {
-            'acceleration': machine.acceleration,
-            'velocity': machine.velocity,
-            'latest_timestamp': machine.timestamp,
-            'dynamic_data': []
-        }
+            result.append(machine_data)
 
-        for data in dynamic_data_list:
-            grouped_data[machine.name]['dynamic_data'].append({
-                'actual_position': data.actual_position,
-                'distance_to_go': data.distance_to_go,
-                'homed': data.homed,
-                'tool_offset': data.tool_offset,
-            })
+        return jsonify(result), 200
 
-    return jsonify(grouped_data), 200
 
-@routes.route('/updatemachine', methods=['POST'])
-@jwt_required()
-def update_machine():
-    current_user = get_jwt_identity()
-    if not user_has_permission(current_user['role'], 'POST'):
-        raise PermissionDeniedError(current_user['role'])
+
 
     data = request.get_json()
     if not data or 'name' not in data:
         raise InvalidDataError("Missing machine name in the data.")
 
     machine_name = data['name']
+    
+    # is_update = bool(machine)  # Check if it's an update operation
 
-    try:
-        actual_position = {axis: value for axis, value in zip(['x', 'y', 'z', 'a', 'c'], data['actual_position'][0])}
-        distance_to_go = {axis: value for axis, value in zip(['x', 'y', 'z', 'a', 'c'], data['distance_to_go'][0])}
-        homed = {axis: value for axis, value in zip(['x', 'y', 'z', 'a', 'c'], data['homed'][0])}
-        tool_offset = {axis: value for axis, value in zip(['x', 'y', 'z', 'a', 'c'], data['tool_offset'][0])}
-    except (KeyError, IndexError):
-        raise InvalidDataError(f"Incorrect data format for machine parameters.")
+    if current_user["role"].lower()=='supervisor':
+        machine = Machine.query.filter_by(name=machine_name).first()
+        if not machine:
+            raise PermissionDeniedError(current_user['role'])
+    
 
-    machine = Machine.query.filter_by(name=machine_name).first()
+    if current_user['role'].lower()=='operator':
+        raise PermissionDeniedError(current_user['role'])
+    machine = Machine.query.filter_by(name=machine_name, acceleration=data['acceleration'], velocity=data['velocity']).first()
+
 
     if machine:
-        latest_dynamic_data = DynamicData.query.filter_by(machine_name=machine_name).first()
+        machine.acceleration = data['acceleration']
+        machine.velocity = data['velocity']
+        latest_dynamic_data = DynamicData.query.filter_by(
+            machine_id=machine.id,
+            actual_position_x=data['actual_position']['x'],
+            actual_position_y=data['actual_position']['y'],
+            actual_position_z=data['actual_position']['z'],
+            actual_position_a=data['actual_position']['a'],
+            actual_position_c=data['actual_position']['c'],
+            distance_to_go_x=data['distance_to_go']['x'],
+            distance_to_go_y=data['distance_to_go']['y'],
+            distance_to_go_z=data['distance_to_go']['z'],
+            distance_to_go_a=data['distance_to_go']['a'],
+            distance_to_go_c=data['distance_to_go']['c'],
+            homed_x=data['homed']['x'],
+            homed_y=data['homed']['y'],
+            homed_z=data['homed']['z'],
+            homed_a=data['homed']['a'],
+            homed_c=data['homed']['c'],
+            tool_offset_x=data['tool_offset']['x'],
+            tool_offset_y=data['tool_offset']['y'],
+            tool_offset_z=data['tool_offset']['z'],
+            tool_offset_a=data['tool_offset']['a'],
+            tool_offset_c=data['tool_offset']['c']
+        ).first()
 
-        if latest_dynamic_data:
-            if (latest_dynamic_data.actual_position != actual_position or 
-                latest_dynamic_data.distance_to_go != distance_to_go or
-                latest_dynamic_data.homed != homed or
-                latest_dynamic_data.tool_offset != tool_offset or 
-                machine.acceleration != data['acceleration'] or 
-                machine.velocity != data['velocity']):
-                
-                latest_dynamic_data.actual_position = actual_position
-                latest_dynamic_data.distance_to_go = distance_to_go
-                latest_dynamic_data.homed = homed
-                latest_dynamic_data.tool_offset = tool_offset
-                machine.acceleration = data['acceleration']
-                machine.velocity = data['velocity']
-                machine.timestamp = datetime.now()
-                db.session.commit()
-                return jsonify({"message": f"Machine {machine_name} updated."}), 200
-            else:
-                return jsonify({"message": f"No changes detected for machine {machine_name}."}), 200
-        else:
+        if not latest_dynamic_data:
             new_dynamic_data = DynamicData(
-                machine_name=machine_name,
-                actual_position=actual_position,
-                distance_to_go=distance_to_go,
-                homed=homed,
-                tool_offset=tool_offset,
+                machine_id=machine.id,
+                user_id=current_user['user_id'],
+                actual_position_x=data['actual_position']['x'],
+                actual_position_y=data['actual_position']['y'],
+                actual_position_z=data['actual_position']['z'],
+                actual_position_a=data['actual_position']['a'],
+                actual_position_c=data['actual_position']['c'],
+                distance_to_go_x=data['distance_to_go']['x'],
+                distance_to_go_y=data['distance_to_go']['y'],
+                distance_to_go_z=data['distance_to_go']['z'],
+                distance_to_go_a=data['distance_to_go']['a'],
+                distance_to_go_c=data['distance_to_go']['c'],
+                homed_x=data['homed']['x'],
+                homed_y=data['homed']['y'],
+                homed_z=data['homed']['z'],
+                homed_a=data['homed']['a'],
+                homed_c=data['homed']['c'],
+                tool_offset_x=data['tool_offset']['x'],
+                tool_offset_y=data['tool_offset']['y'],
+                tool_offset_z=data['tool_offset']['z'],
+                tool_offset_a=data['tool_offset']['a'],
+                tool_offset_c=data['tool_offset']['c'],
+                created_by=current_user["employee_id"],
+                timestamp=datetime.now()
             )
             db.session.add(new_dynamic_data)
             db.session.commit()
-            return jsonify({"message": f"New dynamic data added for machine {machine_name}."}), 201
     else:
+        # if current_user['role'].capitalize() == 'Supervisor':
+        #     return jsonify({"message": "Supervisors cannot create new machines."}), 403
+        
         new_machine = Machine(
             name=machine_name,
             acceleration=data['acceleration'],
             velocity=data['velocity'],
-            timestamp=datetime.now()
-        )
-        new_dynamic_data = DynamicData(
-            machine_name=machine_name,
-            actual_position=actual_position,
-            distance_to_go=distance_to_go,
-            homed=homed,
-            tool_offset=tool_offset,
+            
         )
         db.session.add(new_machine)
+        db.session.commit()
+
+        new_dynamic_data = DynamicData(
+            machine_id=new_machine.id,
+            user_id=current_user['user_id'],
+            actual_position_x=data['actual_position']['x'],
+            actual_position_y=data['actual_position']['y'],
+            actual_position_z=data['actual_position']['z'],
+            actual_position_a=data['actual_position']['a'],
+            actual_position_c=data['actual_position']['c'],
+            distance_to_go_x=data['distance_to_go']['x'],
+            distance_to_go_y=data['distance_to_go']['y'],
+            distance_to_go_z=data['distance_to_go']['z'],
+            distance_to_go_a=data['distance_to_go']['a'],
+            distance_to_go_c=data['distance_to_go']['c'],
+            homed_x=data['homed']['x'],
+            homed_y=data['homed']['y'],
+            homed_z=data['homed']['z'],
+            homed_a=data['homed']['a'],
+            homed_c=data['homed']['c'],
+            tool_offset_x=data['tool_offset']['x'],
+            tool_offset_y=data['tool_offset']['y'],
+            tool_offset_z=data['tool_offset']['z'],
+            tool_offset_a=data['tool_offset']['a'],
+            tool_offset_c=data['tool_offset']['c'],
+            created_by=current_user["employee_id"],
+            timestamp=datetime.now()
+        )
         db.session.add(new_dynamic_data)
         db.session.commit()
-        return jsonify({"message": f"Machine {machine_name} added to the database."}), 201
+        
+        return jsonify({"message": f"Machine {machine_name} created and data added."}), 201
 
-@routes.route('/deletemachine/<string:machine_name>', methods=['DELETE'])
-@jwt_required()
-def delete_machine(machine_name):
-    current_user = get_jwt_identity()
-    if not user_has_permission(current_user['role'], 'DELETE'):
-        raise PermissionDeniedError(current_user['role'])
+    return jsonify({"message": f"Machine {machine_name} updated."}), 200
 
-    machine = Machine.query.filter_by(name=machine_name).first()
 
-    if machine: 
-        DynamicData.query.filter_by(machine_name=machine_name).delete()
-        db.session.delete(machine)
-        db.session.commit()
-        return jsonify({"message": f"Machine {machine_name} deleted."}), 200
-    else:
-        raise MachineNotFoundError(machine_name)
+# @jwt_required()
+
+
+@routes.route('/viewmachines', methods=['GET'])
+def get_machines():
+ 
+    machines = Machine.query.all()
+    
+    # Group data by machine name
+    result = []
+    for machine in machines:
+        machine_data = {
+            'name': machine.name,
+            'acceleration': machine.acceleration,
+            'velocity': machine.velocity,
+            # 'timestamp': machine.timestamp,
+            'dynamic_data': []
+        }
+        
+        for dynamic_data in machine.dynamic_data:
+            dynamic_data_entry = {
+                'actual_position': {
+                    'x': dynamic_data.actual_position_x,
+                    'y': dynamic_data.actual_position_y,
+                    'z': dynamic_data.actual_position_z,
+                    'a': dynamic_data.actual_position_a,
+                    'c': dynamic_data.actual_position_c
+                },
+                'distance_to_go': {
+                    'x': dynamic_data.distance_to_go_x,
+                    'y': dynamic_data.distance_to_go_y,
+                    'z': dynamic_data.distance_to_go_z,
+                    'a': dynamic_data.distance_to_go_a,
+                    'c': dynamic_data.distance_to_go_c
+                },
+                'homed': {
+                    'x': dynamic_data.homed_x,
+                    'y': dynamic_data.homed_y,
+                    'z': dynamic_data.homed_z,
+                    'a': dynamic_data.homed_a,
+                    'c': dynamic_data.homed_c
+                },
+                'tool_offset': {
+                    'x': dynamic_data.tool_offset_x,
+                    'y': dynamic_data.tool_offset_y,
+                    'z': dynamic_data.tool_offset_z,
+                    'a': dynamic_data.tool_offset_a,
+                    'c': dynamic_data.tool_offset_c
+                },
+                'created_by': dynamic_data.created_by,
+                'timestamp':dynamic_data.timestamp
+            }
+            machine_data['dynamic_data'].append(dynamic_data_entry)
+
+        result.append(machine_data)
+
+    return jsonify(result), 200
+
+
+
+
+
+
