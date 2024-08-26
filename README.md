@@ -1,61 +1,81 @@
-# Ethereal machines
 
-## Overview
-This project is designed to handle api requests for the CNC data. It includes various functionalities accessible via defined API routes, with structured models for data handling and robust error handling mechanisms.
+# Machine Data Management API
 
-## File Structure
+This API is built using Flask and SQLAlchemy to manage machine data and user authentication. It provides routes for creating, updating, retrieving, and deleting machine entries, as well as user login and authentication using JWT.
 
-- **main.py**: The main entry point of the application, handling route definitions and application logic.
-- **requirements.txt**: Lists the Python dependencies required to run the application.
-- **cnc.txt**: Contains the data's that needs to be modified
-- **application/**: Contains additional modules, models, and configurations for the application.
-- **script/**: Includes scripts used for API request to the flask server
-- **Dockerfile**: A script for building and running the application in a Docker container.
-## API Routes and Their Functionality
+## Table of Contents
+- [Setup](#setup)
+- [Routes](#routes)
+  - [Authentication](#authentication)
+  - [Machine Data Management](#machine-data-management)
+- [Usage](#usage)
+  - [Authentication](#authentication-usage)
+  - [Machine Data Management](#machine-data-management-usage)
 
-### 1. **`POST /api/login`**
-   - **Description**: Authenticates the user based on the provided username and assigns a role.
-   - **Request**:
-     ```json
-     {
-       "username": "manager"
-     }
-     ```
-   - **Response**: Returns a JWT access token if the username is valid.
-   - **Example Response**:
+## Setup
+
+1. **Install Dependencies**
+    ```bash
+    pip install -r requirements.txt
+    ```
+
+2. **Environment Variables**
+   Make sure to set the following environment variables:
+   - `SECRET_KEY`: Secret key for JWT encoding/decoding.
+   - `DATABASE_URI`: URI for your SQLAlchemy database.
+   
+3. **Run the Application**
+    ```bash
+    flask main.py
+    ```
+
+## Routes
+
+### Authentication
+
+- **Login**
+
+    **Endpoint**: `/api/login`  
+    **Method**: `POST`  
+    **Description**: Authenticates a user using employee ID and password. Returns a JWT on successful authentication.
+
+    **Request Body**:
+    ```json
+    {
+        "employee_id": "string",
+        "password": "string",
+        "role":"string"
+    }
+    ```
+
+    **Response**:
+    - `200 OK`: Returns a JWT token.
+    - `401 Unauthorized`: Invalid employee ID or password.
+
+    - **Example Response**:
      ```json
      {
        "access_token": "your_jwt_token"
      }
      ```
 
-### 2. **`GET /viewmachines`**
-   - **Description**: Retrieves the list of all machines and their associated dynamic data.
-   - **Response**: A JSON object containing the details of all machines, including their acceleration, velocity, latest timestamp, and dynamic data.
-   - **Example Response**:
-     ```json
-     {
-       "Machine1": {
-         "acceleration": 5.0,
-         "velocity": 10.0,
-         "latest_timestamp": "2024-08-23T14:48:00.000Z",
-         "dynamic_data": [
-           {
-             "actual_position": {"x": 1, "y": 2, "z": 3, "a": 4, "c": 5},
-             "distance_to_go": {"x": 1, "y": 2, "z": 3, "a": 4, "c": 5},
-             "homed": {"x": true, "y": true, "z": true, "a": true, "c": true},
-             "tool_offset": {"x": 0.1, "y": 0.2, "z": 0.3, "a": 0.4, "c": 0.5}
-           }
-         ]
-       }
-     }
-     ```
+### Machine Data Management
 
-### 3. **`POST /updatemachine`**
-   - **Description**: Updates the details of a specific machine. The update is permitted only if the user has the required role.
-   - **Request**: A JSON object containing the updated machine details, including acceleration, velocity, and dynamic data.
-   - **Request Example**:
-     ```json
+- **Create Machine Data**
+
+    **Endpoint**: `/machines`  
+    **Method**: `POST`  
+    **Description**: Creates a new machine entry if the machine name does not exist.
+
+    **Request Body**:
+    Needs JWT in the header
+    ```json
+    {
+        "name": "string",
+        "data": "object"
+    }
+    ```
+    ```json
      {
        "name": "Machine1",
        "acceleration": 6.0,
@@ -66,146 +86,150 @@ This project is designed to handle api requests for the CNC data. It includes va
        "tool_offset": [[0.1, 0.2, 0.3, 0.4, 0.5]]
      }
      ```
-   - **Response**: Returns a message indicating whether the machine was updated, added, or if no changes were detected.
-   - **Example Response**:
-     ```json
-     {
-       "message": "Machine Machine1 updated."
-     }
-     ```
+    **Response**:
+    - `201 Created`: Machine data successfully created.
+    - `409 Conflict`: Machine with the same name already exists.
 
-### 4. **`DELETE /deletemachine/<string:machine_name>`**
-   - **Description**: Deletes a specific machine from the database. This operation is allowed only for users with the required role.
-   - **Request**: The machine name is passed as a URL parameter.
-   - **Response**: A message indicating whether the machine was successfully deleted.
-   - **Example Response**:
-     ```json
-     {
-       "message": "Machine Machine1 deleted."
-     }
-     ```
+- **Update Machine Data**
 
-## Models
+    **Endpoint**: `/machines/`  
+    **Method**: `PUT`  
+    **Description**: Updates the machine data if there are changes. Records the employee ID making the change.
 
-### 1. **Machine Model**
-   - **Attributes**:
-     - `id`: Primary key (integer).
-     - `name`: Name of the machine (string).
-     - `acceleration`: Machine acceleration (float).
-     - `velocity`: Machine velocity (float).
-     - `timestamp`: Timestamp of the last update (datetime).
+    **Request Body**:
+    ```json
+    {
+        "data": "object"
+    }
+    ```
 
-### 2. **DynamicData Model**
-   - **Attributes**:
-     - `id`: Primary key (integer).
-     - `machine_name`: Name of the associated machine (string).
-     - `actual_position`: Dictionary containing the actual position of machine axes (dict).
-     - `distance_to_go`: Dictionary containing the distance to go for machine axes (dict).
-     - `homed`: Dictionary indicating whether each axis is homed (dict).
-     - `tool_offset`: Dictionary containing tool offset values for each axis (dict).
+    **Response**:
+    - `200 OK`: Machine data updated successfully.
+    - `204 No Content`: No changes detected in the machine data.
 
-## Error Handling
+- **Delete Machine Data**
 
-### 1. **PermissionDeniedError**
-   - **Description**: Raised when a user tries to perform an operation without sufficient permissions.
-   - **Response**: 
-     ```json
-     {
-       "message": "You do not have permission to perform this action."
-     }
-     ```
-   - **Status Code**: 403 Forbidden
+    **Endpoint**: `/machines`  
+    **Method**: `DELETE`  
+    **Description**: No Role has the permission to delete data
 
-### 2. **MachineNotFoundError**
-   - **Description**: Raised when a requested machine is not found in the database.
-   - **Response**: 
-     ```json
-     {
-       "message": "Machine Machine1 not found."
-     }
-     ```
-   - **Status Code**: 404 Not Found
+    **Response**:
+    - `200 OK`: Machine data successfully deleted.
+    - `404 Not Found`: Machine with the specified name does not exist.
 
-### 3. **InvalidDataError**
-   - **Description**: Raised when the provided data is invalid or malformed.
-   - **Response**: 
-     ```json
-     {
-       "message": "Invalid data provided."
-     }
-     ```
-   - **Status Code**: 400 Bad Request
+- **Get Machine Data**
 
-## How to Run Locally
+    **Endpoint**: `/machines`  
+    **Method**: `GET`  
+    **Description**: Retrieves the machine data
 
-### Prerequisites
-Ensure you have the following installed on your machine:
-- Python 3.x
-- Git
+    **Response**:
+    - `200 OK`: Returns the machine data.
+
+## Usage
+
+### Authentication Usage
+
+- **Login**
+
+    Use the following curl command to log in and obtain a JWT token:
+
+    ```bash
+    curl -X POST http://localhost:5000/api/login -H "Content-Type: application/json" -d '{
+      "employee_id": "your_employee_id",
+      "password": "your_password"
+    }'
+    ```
+
+### Machine Data Management Usage
+
+- **Create Machine Data**
+
+    ```bash
+    curl -X POST http://127.0.0.1:5000/machine \
+    -H "Authorization: Bearer <your_jwt_token>" \
+    -H "Content-Type: application/json" \
+    -d '{
+    "name": "Machine_1",
+    "acceleration": 10.5,
+    "velocity": 200.0,
+    "actual_position": {
+        "x": 12.5,
+        "y": 22.5,
+        "z": 35.5,
+        "a": 45.5,
+        "c": 55.5
+    },
+    "distance_to_go": {
+        "x": 1.5,
+        "y": 2.5,
+        "z": 3.5,
+        "a": 4.5,
+        "c": 5.5
+    },
+    "homed": {
+        "x": true,
+        "y": false,
+        "z": true,
+        "a": false,
+        "c": true
+    },
+    "tool_offset": {
+        "x": 0.1,
+        "y": 0.2,
+        "z": 0.3,
+        "a": 0.4,
+        "c": 0.5
+    }
+    }'
+
+    ```
+
+- **Update Machine Data**
+
+    ```bash
+    curl -X PUT http://127.0.0.1:5000/machine \
+    -H "Authorization: Bearer <your_jwt_token>" \
+    -H "Content-Type: application/json" \
+    -d '{
+    "name": "Machine_1",
+    "acceleration": 12.0,
+    "velocity": 220.0,
+    "actual_position": {
+        "x": 13.0,
+        "y": 23.0,
+        "z": 36.0,
+        "a": 46.0,
+        "c": 56.0
+    },
+    "distance_to_go": {
+        "x": 2.0,
+        "y": 3.0,
+        "z": 4.0,
+        "a": 5.0,
+        "c": 6.0
+    },
+    "homed": {
+        "x": true,
+        "y": true,
+        "z": true,
+        "a": true,
+        "c": true
+    },
+    "tool_offset": {
+        "x": 0.2,
+        "y": 0.3,
+        "z": 0.4,
+        "a": 0.5,
+        "c": 0.6
+    }
+    }'
+
+    ```
 
 
+- **Get Machine Data**
 
-
-### Setup and Installation
-
-1. **Clone the Repository**:
-   ```bash
-
-   git clone https://github.com/Prade7/Ethereal_machines_assignment.git
-   
-   cd Ethereal_machines_assignment
-Install Dependencies:
-If running locally without Docker, install the required Python packages:
-
-```bash
-
-pip install -r requirements.txt
-```
-### Running the Application:
-```
-python main.py
-
-```
-```
-python script/script.py
-```
-
-
-
-
-
-
-## Using the CNC Machine Management API
-
-### 1. **Login to Obtain JWT Token**
-To interact with the API, you need to authenticate and obtain a JWT token. Use the following `curl` command to login:
-
-```bash
-curl -X POST http://localhost:5000/api/login \
--H "Content-Type: application/json" \
--d '{"username": "manager"}'
-```
-
-### 2. **Update Machine Data (Requires JWT)**
-```bash
-curl -X POST http://localhost:5000/updatemachine \
--H "Content-Type: application/json" \
--H "Authorization: Bearer your_jwt_token_here" \
--d '{
-  "name": "Machine1",
-  "acceleration": 6.0,
-  "velocity": 12.0,
-  "actual_position": [[1, 2, 3, 4, 5]],
-  "distance_to_go": [[1, 2, 3, 4, 5]],
-  "homed": [[true, true, true, true, true]],
-  "tool_offset": [[0.1, 0.2, 0.3, 0.4, 0.5]]
-}'
-
-```
-
-### 3. **Get Machine Data (Requires JWT)**
-```bash
-curl -X GET http://localhost:5000/viewmachines \
--H "Content-Type: application/json" \
--H "Authorization: Bearer your_jwt_token_here"
-```
+    ```bash
+    curl -X GET http://localhost:5000/machines/ -H "Authorization: Bearer <your_jwt_token>"
+    ```
