@@ -1,12 +1,31 @@
 import time
 import requests
 from datetime import datetime
+import json
 
 file_path = 'cnc.txt'
 api_url = 'http://127.0.0.1:5000/machine'
 
 # JWT of the user
-jwt_token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJmcmVzaCI6ZmFsc2UsImlhdCI6MTcyNDYxMjIyMiwianRpIjoiMTljMjJmYzEtMWVmZC00ZDc3LTlmMjQtOGIwNmUzMGE2NDlhIiwidHlwZSI6ImFjY2VzcyIsInN1YiI6eyJlbXBsb3llZV9pZCI6IkFyYXZpbmRoIiwicm9sZSI6Im1hbmFnZXIiLCJ1c2VyX2lkIjoxfSwibmJmIjoxNzI0NjEyMjIyLCJjc3JmIjoiOGJjOTUwMjEtODZkZi00YTkxLWFiNzEtMzc0NmE3ZTJkMDIwIn0.PXdXyDhty5NNvNNumS9uq1oQu0GPMdhZwCpKYDDKSr4"
+
+
+url = "http://127.0.0.1:5000/api/login"
+
+payload = json.dumps({
+  "employee_id": "18ECR045",
+  "password": "9942142",
+  "role": "manager"
+})
+headers = {
+  'Content-Type': 'application/json'
+}
+
+response = requests.request("POST", url, headers=headers, data=payload)
+
+
+
+
+jwt_token = response.json()["access_token"]
 def parse_cnc_file(file_path):
     machines = []   
     current_machine = {}

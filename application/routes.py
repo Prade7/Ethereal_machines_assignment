@@ -8,20 +8,6 @@ from werkzeug.security import check_password_hash
 
 routes = Blueprint('routes', __name__)
 
-# USER_ROLES = {
-#     'manager': 'Manager',
-#     'supervisor': 'Supervisor',
-#     'operator': 'Operator'
-# }
-
-# def user_has_permission(user_role, method, is_update=False):
-#     permissions = {
-#         'Manager': {'POST': True, 'GET': True, 'PUT': True, 'DELETE': True},
-#         'Supervisor': {'POST': is_update, 'GET': True, 'PUT': True, 'DELETE': False},
-#         'Operator': {'POST': False, 'GET': True, 'PUT': False, 'DELETE': False},
-#     }
-#     return permissions.get(user_role, {}).get(method, False)
-
 
 @routes.route('/api/login', methods=['POST'])
 def login():
@@ -39,7 +25,6 @@ def login():
     if user:
         # Check if the password is correct
         if check_password_hash(user.password_hash, password):
-            print("-------------------------------------------------",'line no 42')
             # Create JWT token
             access_token = create_access_token(
                 identity={'employee_id': user.employee_id, 'role': user.role, 'user_id': user.id},
@@ -81,6 +66,11 @@ def login():
 @jwt_required()
 def machine():
     current_user = get_jwt_identity()
+
+    user_details = User.query.filter_by(employee_id=current_user['employee_id']).first()
+    if not user_details:
+        return jsonify(f"Your data is not found in the db MR - {current_user['employee_id']}"),404
+
     if request.method =="DELETE":
         employee_id = current_user["employee_id"]
         return jsonify(f"You cannot delete MR - {employee_id}"),404
@@ -95,7 +85,6 @@ def machine():
                 'name': machine.name,
                 'acceleration': machine.acceleration,
                 'velocity': machine.velocity,
-                # 'timestamp': machine.timestamp,
                 'dynamic_data': []
             }
             
@@ -147,7 +136,6 @@ def machine():
 
     machine_name = data['name']
     
-    # is_update = bool(machine)  # Check if it's an update operation
 
     if current_user["role"].lower()=='supervisor':
         machine = Machine.query.filter_by(name=machine_name).first()
@@ -217,8 +205,6 @@ def machine():
             db.session.add(new_dynamic_data)
             db.session.commit()
     else:
-        # if current_user['role'].capitalize() == 'Supervisor':
-        #     return jsonify({"message": "Supervisors cannot create new machines."}), 403
         
         new_machine = Machine(
             name=machine_name,
@@ -266,7 +252,7 @@ def machine():
 # @jwt_required()
 
 
-@routes.route('/viewmachines', methods=['GET'])
+@routes.route('/viewmachines', methods=['GET'])            #An route to check the details in the browser
 def get_machines():
  
     machines = Machine.query.all()
@@ -278,7 +264,6 @@ def get_machines():
             'name': machine.name,
             'acceleration': machine.acceleration,
             'velocity': machine.velocity,
-            # 'timestamp': machine.timestamp,
             'dynamic_data': []
         }
         
