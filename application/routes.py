@@ -149,8 +149,6 @@ def machine():
 
 
     if machine:
-        machine.acceleration = data['acceleration']
-        machine.velocity = data['velocity']
         latest_dynamic_data = DynamicData.query.filter_by(
             machine_id=machine.id,
             actual_position_x=data['actual_position']['x'],
@@ -252,7 +250,7 @@ def machine():
 # @jwt_required()
 
 
-@routes.route('/viewmachines', methods=['GET'])            #An route to check the details in the browser
+@routes.route('/viewmachines', methods=['GET'])            #An route to check the details in the browser so JWT required
 def get_machines():
  
     machines = Machine.query.all()
